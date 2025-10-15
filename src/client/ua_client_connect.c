@@ -13,6 +13,8 @@
 #include "ua_client_internal.h"
 #include "../ua_types_encoding_binary.h"
 
+#include <oqs/oqs.h>
+
 /* Some OPC UA servers only return all Endpoints if the EndpointURL used during
  * the HEL/ACK handshake exactly matches -- including the path following the
  * address and port! Hence for the first connection we only call FindServers and
@@ -32,6 +34,10 @@
 #define UA_MINMESSAGESIZE 8192
 #define UA_SESSION_LOCALNONCELENGTH 32
 #define MAX_DATA_SIZE 4096
+
+
+static uint8_t kem_secretkey[OQS_KEM_ml_kem_768_length_secret_key] = {0};
+static uint8_t kem_publickey[OQS_KEM_ml_kem_768_length_public_key] = {0};
 
 static void initConnect(UA_Client *client);
 static UA_StatusCode createSessionAsync(UA_Client *client);
@@ -166,7 +172,10 @@ signClientSignature(UA_Client *client, UA_ActivateSessionRequest *request) {
     size_t signDataSize =
         channel->remoteCertificate.length + client->serverSessionNonce.length;
     if(signDataSize > MAX_DATA_SIZE)
+    {
+        printf("pls not . . . msg to big\n");
         return UA_STATUSCODE_BADINTERNALERROR;
+    }
     UA_Byte buf[MAX_DATA_SIZE];
     UA_ByteString signData = {signDataSize, buf};
 
@@ -535,9 +544,30 @@ processOPNResponse(UA_Client *client, const UA_ByteString *message) {
         return;
     }
 
-    /* Move the nonce out of the response */
-    UA_ByteString_clear(&client->channel.remoteNonce);
-    client->channel.remoteNonce = response.serverNonce;
+
+    if(UA_SecureChannel_isKEM(client->channel.securityPolicy))
+    {
+	    uint8_t shared_secret[OQS_KEM_ml_kem_768_length_shared_secret] = {0};
+        uint8_t kem_ciphetext[OQS_KEM_ml_kem_768_length_ciphertext] = {0};
+        memcpy(kem_ciphetext, response.serverNonce.data, OQS_KEM_ml_kem_768_length_ciphertext);
+
+        OQS_KEM_ml_kem_768_decaps(shared_secret, kem_ciphetext, kem_secretkey);
+
+        UA_ByteString_clear(&client->channel.localNonce);
+        UA_ByteString_clear(&client->channel.remoteNonce);
+
+        memcpy(&client->channel.localNonce.data, shared_secret, OQS_KEM_ml_kem_768_length_shared_secret);
+        client->channel.localNonce.length = OQS_KEM_ml_kem_768_length_shared_secret;
+        memcpy(&client->channel.remoteNonce.data, shared_secret, OQS_KEM_ml_kem_768_length_shared_secret);
+        client->channel.remoteNonce.length = OQS_KEM_ml_kem_768_length_shared_secret;
+    }
+    else {
+        /* Move the nonce out of the response */
+        UA_ByteString_clear(&client->channel.remoteNonce);
+        client->channel.remoteNonce = response.serverNonce;
+    }
+
+    // clear response
     UA_ByteString_init(&response.serverNonce);
     UA_ResponseHeader_clear(&response.responseHeader);
 
@@ -599,11 +629,31 @@ static void
 sendOPNAsync(UA_Client *client, UA_Boolean renew) {
     if(!UA_SecureChannel_isConnected(&client->channel)) {
         client->connectStatus = UA_STATUSCODE_BADINTERNALERROR;
+        printf("I fail here!\n");
         return;
     }
 
-    client->connectStatus =
-        UA_SecureChannel_generateLocalNonce(&client->channel);
+    if(UA_SecureChannel_isKEM(client->channel.securityPolicy))
+    {
+        // set clientNonce to public key
+        OQS_STATUS rc = OQS_KEM_ml_kem_768_keypair(kem_publickey, kem_secretkey);
+        if(rc != OQS_SUCCESS)
+        {
+            client->connectStatus = UA_STATUSCODE_BAD;
+            return;
+        }
+        else{
+            client->connectStatus = UA_STATUSCODE_GOOD;
+        }
+
+        UA_ByteString_allocBuffer(&client->channel.localNonce, OQS_KEM_ml_kem_768_length_public_key);
+        memcpy(&client->channel.localNonce.data, kem_publickey, OQS_KEM_ml_kem_768_length_public_key);
+    }
+    else {
+        client->connectStatus =
+                UA_SecureChannel_generateLocalNonce(&client->channel);
+    }
+    
     if(client->connectStatus != UA_STATUSCODE_GOOD)
         return;
 

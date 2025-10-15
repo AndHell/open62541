@@ -20,6 +20,7 @@
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
 
+
 #include <oqs/oqs.h>
 
 #define UA_SHA256_LENGTH 32    /* 256 bit */
@@ -30,6 +31,7 @@
 #define UA_SECURITYPOLICY_BASIC256SHA256_SYM_PLAIN_TEXT_BLOCK_SIZE 16
 #define UA_SECURITYPOLICY_BASIC256SHA256_MINASYMKEYLENGTH 256
 #define UA_SECURITYPOLICY_BASIC256SHA256_MAXASYMKEYLENGTH 512
+
 
 typedef struct {
     EVP_PKEY *localPrivateKey;
@@ -227,7 +229,7 @@ UA_ChannelModule_New_Context(const UA_SecurityPolicy * securityPolicy,
     *channelContext = context;
 
     UA_LOG_INFO(securityPolicy->logger, UA_LOGCATEGORY_SECURITYPOLICY,
-                "The kyber_basic256sha256 security policy channel with liboqs+openssl is created.");
+                "The basic256sha256 security policy channel with openssl is created.");
 
     return UA_STATUSCODE_GOOD;
 }
@@ -250,7 +252,7 @@ UA_ChannelModule_Delete_Context(void * channelContext) {
     UA_ByteString_clear(&cc->remoteSymIv);
 
     UA_LOG_INFO(cc->policyContext->logger, UA_LOGCATEGORY_SECURITYPOLICY,
-                "The kyber_basic256sha256 security policy channel with liboqs+openssl is deleted.");
+                "The basic256sha256 security policy channel with openssl is deleted.");
     UA_free(cc);
 }
 
@@ -574,7 +576,7 @@ UA_SecurityPolicy_Basic256Sha256(UA_SecurityPolicy *policy,
     UA_SecurityPolicySymmetricModule *symmetricModule = &policy->symmetricModule;
     UA_SecurityPolicyChannelModule *channelModule = &policy->channelModule;
     UA_LOG_INFO(logger, UA_LOGCATEGORY_SECURITYPOLICY,
-                "The Kyber-Basic256Sha256 security policy with liboqs+openssl is added.");
+                "The basic256sha256 security policy with openssl is added.");
 
     UA_Openssl_Init();
     memset(policy, 0, sizeof(UA_SecurityPolicy));
@@ -615,12 +617,13 @@ UA_SecurityPolicy_Basic256Sha256(UA_SecurityPolicy *policy,
     asySigAlgorithm->getLocalKeyLength = NULL;
     asySigAlgorithm->getRemoteKeyLength = NULL;
 
+
     /* AsymmetricModule encryption algorithm */
     UA_SecurityPolicyEncryptionAlgorithm *asymEncryAlg =
         &asymmetricModule->cryptoModule.encryptionAlgorithm;
-    asymEncryAlg->uri = UA_STRING("http://www.w3.org/2001/04/xmlenc#rsa-oaep\0");
-    asymEncryAlg->encrypt = UA_AsymEn_Basic256Sha256_encrypt;
-    asymEncryAlg->decrypt = UA_Asym_Basic256Sha256_Decrypt;
+    asymEncryAlg->uri = UA_STRING("http://www.w3.org/2001/04/xmlenc#mlkem768\0");
+    asymEncryAlg->encrypt = UA_AsymEn_Basic256Sha256_encrypt;  
+    asymEncryAlg->decrypt = UA_Asym_Basic256Sha256_Decrypt;    
     asymEncryAlg->getLocalKeyLength = UA_AsymEn_Basic256Sha256_getLocalKeyLength;
     asymEncryAlg->getRemoteKeyLength = UA_AsymEn_Basic256Sha256_getRemoteKeyLength;
     asymEncryAlg->getRemoteBlockSize = UA_AsymEn_Basic256Sha256_getRemoteBlockSize;

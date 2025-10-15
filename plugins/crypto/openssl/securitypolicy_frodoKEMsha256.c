@@ -20,6 +20,7 @@
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
 
+
 #include <oqs/oqs.h>
 
 #define UA_SHA256_LENGTH 32    /* 256 bit */
@@ -227,7 +228,7 @@ UA_ChannelModule_New_Context(const UA_SecurityPolicy * securityPolicy,
     *channelContext = context;
 
     UA_LOG_INFO(securityPolicy->logger, UA_LOGCATEGORY_SECURITYPOLICY,
-                "The kyber_basic256sha256 security policy channel with liboqs+openssl is created.");
+                "The basic256sha256 security policy channel with openssl is created.");
 
     return UA_STATUSCODE_GOOD;
 }
@@ -250,7 +251,7 @@ UA_ChannelModule_Delete_Context(void * channelContext) {
     UA_ByteString_clear(&cc->remoteSymIv);
 
     UA_LOG_INFO(cc->policyContext->logger, UA_LOGCATEGORY_SECURITYPOLICY,
-                "The kyber_basic256sha256 security policy channel with liboqs+openssl is deleted.");
+                "The basic256sha256 security policy channel with openssl is deleted.");
     UA_free(cc);
 }
 
@@ -574,13 +575,13 @@ UA_SecurityPolicy_Basic256Sha256(UA_SecurityPolicy *policy,
     UA_SecurityPolicySymmetricModule *symmetricModule = &policy->symmetricModule;
     UA_SecurityPolicyChannelModule *channelModule = &policy->channelModule;
     UA_LOG_INFO(logger, UA_LOGCATEGORY_SECURITYPOLICY,
-                "The Kyber-Basic256Sha256 security policy with liboqs+openssl is added.");
+                "The basic256sha256 security policy with openssl is added.");
 
     UA_Openssl_Init();
     memset(policy, 0, sizeof(UA_SecurityPolicy));
     policy->logger = logger;
     policy->policyUri =
-        UA_STRING("http://opcfoundation.org/UA/SecurityPolicy#KyberSha256\0");
+        UA_STRING("http://opcfoundation.org/UA/SecurityPolicy#FrodoKEMSha256\0");
     policy->certificateGroupId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP);
     policy->certificateTypeId = UA_NODEID_NUMERIC(0, UA_NS0ID_RSASHA256APPLICATIONCERTIFICATETYPE);
     policy->securityLevel = 20;
@@ -615,12 +616,13 @@ UA_SecurityPolicy_Basic256Sha256(UA_SecurityPolicy *policy,
     asySigAlgorithm->getLocalKeyLength = NULL;
     asySigAlgorithm->getRemoteKeyLength = NULL;
 
+
     /* AsymmetricModule encryption algorithm */
     UA_SecurityPolicyEncryptionAlgorithm *asymEncryAlg =
         &asymmetricModule->cryptoModule.encryptionAlgorithm;
-    asymEncryAlg->uri = UA_STRING("http://www.w3.org/2001/04/xmlenc#rsa-oaep\0");
-    asymEncryAlg->encrypt = UA_AsymEn_Basic256Sha256_encrypt;
-    asymEncryAlg->decrypt = UA_Asym_Basic256Sha256_Decrypt;
+    asymEncryAlg->uri = UA_STRING("http://www.w3.org/2001/04/xmlenc#frodoKEM\0");
+    asymEncryAlg->encrypt = UA_AsymEn_Basic256Sha256_encrypt;  
+    asymEncryAlg->decrypt = UA_Asym_Basic256Sha256_Decrypt;    
     asymEncryAlg->getLocalKeyLength = UA_AsymEn_Basic256Sha256_getLocalKeyLength;
     asymEncryAlg->getRemoteKeyLength = UA_AsymEn_Basic256Sha256_getRemoteKeyLength;
     asymEncryAlg->getRemoteBlockSize = UA_AsymEn_Basic256Sha256_getRemoteBlockSize;
@@ -632,7 +634,7 @@ UA_SecurityPolicy_Basic256Sha256(UA_SecurityPolicy *policy,
     asymmetricModule->makeCertificateThumbprint = UA_makeCertificateThumbprint;
 
     /* SymmetricModule */
-    symmetricModule->secureChannelNonceLength = OQS_KEM_ml_kem_768_length_public_key;
+    symmetricModule->secureChannelNonceLength = OQS_KEM_frodokem_640_aes_length_ciphertext;
     symmetricModule->generateNonce = UA_Sym_Basic256Sha256_generateNonce;
     symmetricModule->generateKey = UA_Sym_Basic256Sha256_generateKey;
 

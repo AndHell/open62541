@@ -164,6 +164,9 @@ struct UA_SecureChannel {
                                       const UA_AsymmetricAlgorithmSecurityHeader *asymHeader);
 };
 
+
+UA_Boolean UA_SecureChannel_isKEM(const UA_SecurityPolicy* const p);
+
 void UA_SecureChannel_init(UA_SecureChannel *channel);
 
 /* Trigger the shutdown */

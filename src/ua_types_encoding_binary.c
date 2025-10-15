@@ -110,6 +110,7 @@ encodeWithExchangeBuffer(Ctx *ctx, const void *ptr, const UA_DataType *type) {
     (void)oldend; /* For compilers who don't understand NDEBUG... */
 #endif
     status ret = encodeBinaryJumpTable[type->typeKind](ctx, ptr, type);
+    
     if(ret == UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED) {
         UA_assert(ctx->end == oldend);
         ctx->pos = oldpos; /* Set to the last known good position and exchange */
@@ -465,7 +466,9 @@ Array_encodeBinary(Ctx *ctx, const void *src, size_t length, const UA_DataType *
     /* Check and convert the array length to int32 */
     i32 signed_length = -1;
     if(length > UA_INT32_MAX)
+    {
         return UA_STATUSCODE_BADINTERNALERROR;
+    }
     if(length > 0)
         signed_length = (i32)length;
     else if(src >= UA_EMPTY_ARRAY_SENTINEL) /* src != NULL */
@@ -657,6 +660,7 @@ NodeId_encodeBinaryWithEncodingMask(Ctx *ctx, UA_NodeId const *src, u8 encoding)
 }
 
 FUNC_ENCODE_BINARY(NodeId) {
+    printf("this one!!!\n");
     return NodeId_encodeBinaryWithEncodingMask(ctx, src, 0);
 }
 
@@ -732,6 +736,8 @@ FUNC_ENCODE_BINARY(ExpandedNodeId) {
 
     /* Encode the NodeId. Can exchange the buffer. */
     status ret = NodeId_encodeBinaryWithEncodingMask(ctx, &src->nodeId, encoding);
+    
+    printf("NodeId_encodeBinaryWithEncodingMask? %s\n", UA_StatusCode_name(ret));     
     UA_CHECK_STATUS(ret, return ret);
 
     /* Encode the namespace. Internally uses encodeWithExchangeBuffer
@@ -877,6 +883,9 @@ FUNC_ENCODE_BINARY(ExtensionObject) {
         status ret = ENCODE_DIRECT(&src->content.encoded.typeId, NodeId);
         UA_CHECK_STATUS(ret, return ret);
         ret = encodeWithExchangeBuffer(ctx, &encoding, &UA_TYPES[UA_TYPES_BYTE]);
+
+        printf("encodeWithExchangeBuffer? %s\n", UA_StatusCode_name(ret));
+
         UA_assert(ret != UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
         UA_CHECK_STATUS(ret, return ret);
         switch(src->encoding) {
@@ -886,6 +895,7 @@ FUNC_ENCODE_BINARY(ExtensionObject) {
         case UA_EXTENSIONOBJECT_ENCODED_XML:
             /* ByteString in disguise. Array encoding can exchange the buffer */
             ret = ENCODE_DIRECT(&src->content.encoded.body, String);
+            printf("ENCODE_DIRECT? %s\n", UA_StatusCode_name(ret));
             break;
         default:
             ret = UA_STATUSCODE_BADINTERNALERROR;

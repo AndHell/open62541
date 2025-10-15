@@ -33,6 +33,15 @@ UA_Boolean isEccPolicy(const UA_SecurityPolicy* const p) {
     return false;
 }
 
+UA_Boolean UA_SecureChannel_isKEM(const UA_SecurityPolicy* const p) {
+    if((0 == strncmp("http://opcfoundation.org/UA/SecurityPolicy#FrodoKEMSha256", (const char *) p->policyUri.data, strlen("http://opcfoundation.org/UA/SecurityPolicy#FrodoKEMSha256")))
+    || (0 == strncmp("http://opcfoundation.org/UA/SecurityPolicy#KyberSha256", (const char *) p->policyUri.data, strlen("http://opcfoundation.org/UA/SecurityPolicy#KyberSha256")))) {
+        return true;
+    }
+
+    return false;
+}
+
 void
 UA_SecureChannel_init(UA_SecureChannel *channel) {
     /* Normal linked lists are initialized by zeroing out */
@@ -274,7 +283,7 @@ UA_SecureChannel_sendAsymmetricOPNMessage(UA_SecureChannel *channel,
     /* Allocate the message buffer */
     UA_ByteString buf = UA_BYTESTRING_NULL;
     UA_StatusCode res = cm->allocNetworkBuffer(cm, channel->connectionId, &buf,
-                                               channel->config.sendBufferSize);
+                                               channel->config.sendBufferSize);                    
     UA_CHECK_STATUS(res, return res);
 
     /* Restrict buffer to the available space for the payload */
@@ -290,8 +299,10 @@ UA_SecureChannel_sendAsymmetricOPNMessage(UA_SecureChannel *channel,
     memset(&encOpts, 0, sizeof(UA_EncodeBinaryOptions));
     encOpts.namespaceMapping = channel->namespaceMapping;
     res |= UA_NodeId_encodeBinary(&contentType->binaryEncodingId, &buf_pos, buf_end);
+    printf("UA_NodeId_encodeBinary? %s\n", UA_StatusCode_name(res));
     res |= UA_encodeBinaryInternal(content, contentType, &buf_pos, &buf_end,
                                    &encOpts, NULL, NULL);
+    printf("encode error? %s\n", UA_StatusCode_name(res));
     UA_CHECK_STATUS(res, goto error);
 
     /* Compute the header length */
@@ -318,10 +329,14 @@ UA_SecureChannel_sendAsymmetricOPNMessage(UA_SecureChannel *channel,
      * at this step and not earlier. */
     res = prependHeadersAsym(channel, buf.data, buf_end, total_length,
                              securityHeaderLength, requestId, &encryptedLength);
+    
+    printf("prependHeadersAsym? %s\n", UA_StatusCode_name(res));       
     UA_CHECK_STATUS(res, goto error);
 
     res = signAndEncryptAsym(channel, pre_sig_length, &buf,
                              securityHeaderLength, total_length);
+    
+    printf("signAndEncryptAsym? %s\n", UA_StatusCode_name(res));       
     UA_CHECK_STATUS(res, goto error);
 
     /* Send the message, the buffer is freed in the network layer */

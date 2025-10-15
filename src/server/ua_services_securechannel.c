@@ -13,6 +13,8 @@
 #include "ua_server_internal.h"
 #include "ua_services.h"
 
+#include <oqs/oqs.h>
+
 /* This contains the SecureChannel Services to be called after validation and
  * decoding of the message. The main SecureChannel logic is handled in
  * /src/ua_securechannel.* and /src/server/ua_server_binary.c. */
@@ -82,14 +84,39 @@ Service_OpenSecureChannel(UA_Server *server, UA_SecureChannel *channel,
     if(channel->altSecurityToken.revisedLifetime == 0)
         channel->altSecurityToken.revisedLifetime = server->config.maxSecurityTokenLifetime;
 
-    /* Set the nonces. The remote nonce will be "rotated in" when it is first used. */
-    UA_ByteString_clear(&channel->remoteNonce);
-    channel->remoteNonce = request->clientNonce;
-    UA_ByteString_init(&request->clientNonce);
+   
 
-    response->responseHeader.serviceResult = UA_SecureChannel_generateLocalNonce(channel);
-    UA_CHECK_STATUS(response->responseHeader.serviceResult, goto error);
 
+    if(UA_SecureChannel_isKEM(channel->securityPolicy))
+    {
+        uint8_t public_key[OQS_KEM_ml_kem_768_length_public_key] = {0};
+	    uint8_t ciphertext[OQS_KEM_ml_kem_768_length_ciphertext] = {0};
+	    uint8_t shared_secret[OQS_KEM_ml_kem_768_length_shared_secret] = {0};
+
+        memcpy(public_key, &request->clientNonce, OQS_KEM_ml_kem_768_length_public_key);
+
+        OQS_KEM_ml_kem_768_encaps(ciphertext, shared_secret, public_key);
+        // channel->localNonce =  shared key
+        // channel->remoteNonce = shared key
+        UA_ByteString_clear(&channel->remoteNonce);
+        UA_ByteString_clear(&channel->localNonce);
+        memcpy(&channel->remoteNonce, shared_secret, OQS_KEM_ml_kem_768_length_shared_secret);
+        memcpy(&channel->localNonce, shared_secret, OQS_KEM_ml_kem_768_length_shared_secret);
+
+        // copy
+        // response->serverNonce = ciphertext
+        memcpy(&response->serverNonce, ciphertext, OQS_KEM_ml_kem_768_length_ciphertext);
+    }
+    else {
+         /* Set the nonces. The remote nonce will be "rotated in" when it is first used. */
+        UA_ByteString_clear(&channel->remoteNonce);
+        channel->remoteNonce = request->clientNonce;
+        UA_ByteString_init(&request->clientNonce);
+
+        response->responseHeader.serviceResult = UA_SecureChannel_generateLocalNonce(channel);
+        UA_CHECK_STATUS(response->responseHeader.serviceResult, goto error);
+    }
+   
     /* Update the channel state */
     channel->renewState = UA_SECURECHANNELRENEWSTATE_NEWTOKEN_SERVER;
     channel->state = UA_SECURECHANNELSTATE_OPEN;
@@ -99,9 +126,17 @@ Service_OpenSecureChannel(UA_Server *server, UA_SecureChannel *channel,
     response->securityToken.createdAt = el->dateTime_now(el); /* only for sending */
     response->responseHeader.timestamp = response->securityToken.createdAt;
     response->responseHeader.requestHandle = request->requestHeader.requestHandle;
-    response->responseHeader.serviceResult =
-        UA_ByteString_copy(&channel->localNonce, &response->serverNonce);
+    response->responseHeader.serviceResult =            
+                UA_ByteString_copy(&channel->localNonce, &response->serverNonce);
     UA_CHECK_STATUS(response->responseHeader.serviceResult, goto error);
+    
+    // if we use a kem, we put the shared key in both, remote and local Nonce
+    // so we derive the same key
+    if(UA_SecureChannel_isKEM(channel->securityPolicy))
+    {
+        UA_ByteString_copy(&channel->remoteNonce, &channel->localNonce);
+    }
+   
 
     /* Success */
     if(request->requestType == UA_SECURITYTOKENREQUESTTYPE_ISSUE) {
