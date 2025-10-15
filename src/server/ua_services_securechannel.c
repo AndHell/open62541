@@ -98,14 +98,15 @@ Service_OpenSecureChannel(UA_Server *server, UA_SecureChannel *channel,
         OQS_KEM_ml_kem_768_encaps(ciphertext, shared_secret, public_key);
         // channel->localNonce =  shared key
         // channel->remoteNonce = shared key
-        UA_ByteString_clear(&channel->remoteNonce);
-        UA_ByteString_clear(&channel->localNonce);
-        memcpy(&channel->remoteNonce, shared_secret, OQS_KEM_ml_kem_768_length_shared_secret);
-        memcpy(&channel->localNonce, shared_secret, OQS_KEM_ml_kem_768_length_shared_secret);
+        UA_ByteString_allocBuffer(&channel->remoteNonce, OQS_KEM_ml_kem_768_length_shared_secret);
+        memcpy(channel->remoteNonce.data, shared_secret, OQS_KEM_ml_kem_768_length_shared_secret);
+
+        UA_ByteString_allocBuffer(&channel->localNonce, OQS_KEM_ml_kem_768_length_shared_secret);
+        memcpy(channel->localNonce.data, shared_secret, OQS_KEM_ml_kem_768_length_shared_secret);
 
         // copy
-        // response->serverNonce = ciphertext
-        memcpy(&response->serverNonce, ciphertext, OQS_KEM_ml_kem_768_length_ciphertext);
+        UA_ByteString_allocBuffer(&response->serverNonce, OQS_KEM_ml_kem_768_length_ciphertext);
+        memcpy(response->serverNonce.data, ciphertext, OQS_KEM_ml_kem_768_length_ciphertext);
     }
     else {
          /* Set the nonces. The remote nonce will be "rotated in" when it is first used. */

@@ -660,7 +660,6 @@ NodeId_encodeBinaryWithEncodingMask(Ctx *ctx, UA_NodeId const *src, u8 encoding)
 }
 
 FUNC_ENCODE_BINARY(NodeId) {
-    printf("this one!!!\n");
     return NodeId_encodeBinaryWithEncodingMask(ctx, src, 0);
 }
 

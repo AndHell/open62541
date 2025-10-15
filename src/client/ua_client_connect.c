@@ -556,10 +556,12 @@ processOPNResponse(UA_Client *client, const UA_ByteString *message) {
         UA_ByteString_clear(&client->channel.localNonce);
         UA_ByteString_clear(&client->channel.remoteNonce);
 
-        memcpy(&client->channel.localNonce.data, shared_secret, OQS_KEM_ml_kem_768_length_shared_secret);
-        client->channel.localNonce.length = OQS_KEM_ml_kem_768_length_shared_secret;
-        memcpy(&client->channel.remoteNonce.data, shared_secret, OQS_KEM_ml_kem_768_length_shared_secret);
-        client->channel.remoteNonce.length = OQS_KEM_ml_kem_768_length_shared_secret;
+
+        UA_ByteString_allocBuffer(&client->channel.localNonce, OQS_KEM_ml_kem_768_length_shared_secret);
+        memcpy(client->channel.localNonce.data, shared_secret, OQS_KEM_ml_kem_768_length_shared_secret);
+        
+        UA_ByteString_allocBuffer(&client->channel.remoteNonce, OQS_KEM_ml_kem_768_length_shared_secret);
+        memcpy(client->channel.remoteNonce.data, shared_secret, OQS_KEM_ml_kem_768_length_shared_secret);
     }
     else {
         /* Move the nonce out of the response */
@@ -646,8 +648,8 @@ sendOPNAsync(UA_Client *client, UA_Boolean renew) {
             client->connectStatus = UA_STATUSCODE_GOOD;
         }
 
-        UA_ByteString_allocBuffer(&client->channel.localNonce, OQS_KEM_ml_kem_768_length_public_key);
-        memcpy(&client->channel.localNonce.data, kem_publickey, OQS_KEM_ml_kem_768_length_public_key);
+        client->connectStatus |= UA_ByteString_allocBuffer(&client->channel.localNonce, OQS_KEM_ml_kem_768_length_public_key);
+        memcpy(client->channel.localNonce.data, kem_publickey, OQS_KEM_ml_kem_768_length_public_key);
     }
     else {
         client->connectStatus =
