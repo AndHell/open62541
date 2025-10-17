@@ -882,9 +882,6 @@ FUNC_ENCODE_BINARY(ExtensionObject) {
         status ret = ENCODE_DIRECT(&src->content.encoded.typeId, NodeId);
         UA_CHECK_STATUS(ret, return ret);
         ret = encodeWithExchangeBuffer(ctx, &encoding, &UA_TYPES[UA_TYPES_BYTE]);
-
-        printf("encodeWithExchangeBuffer? %s\n", UA_StatusCode_name(ret));
-
         UA_assert(ret != UA_STATUSCODE_BADENCODINGLIMITSEXCEEDED);
         UA_CHECK_STATUS(ret, return ret);
         switch(src->encoding) {
@@ -894,7 +891,6 @@ FUNC_ENCODE_BINARY(ExtensionObject) {
         case UA_EXTENSIONOBJECT_ENCODED_XML:
             /* ByteString in disguise. Array encoding can exchange the buffer */
             ret = ENCODE_DIRECT(&src->content.encoded.body, String);
-            printf("ENCODE_DIRECT? %s\n", UA_StatusCode_name(ret));
             break;
         default:
             ret = UA_STATUSCODE_BADINTERNALERROR;

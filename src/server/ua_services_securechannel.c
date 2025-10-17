@@ -93,20 +93,29 @@ Service_OpenSecureChannel(UA_Server *server, UA_SecureChannel *channel,
 	    uint8_t ciphertext[OQS_KEM_ml_kem_768_length_ciphertext] = {0};
 	    uint8_t shared_secret[OQS_KEM_ml_kem_768_length_shared_secret] = {0};
 
-        memcpy(public_key, &request->clientNonce, OQS_KEM_ml_kem_768_length_public_key);
+        memcpy(public_key, request->clientNonce.data, OQS_KEM_ml_kem_768_length_public_key);
+        
+        OQS_STATUS oqc_rc = OQS_KEM_ml_kem_768_encaps(ciphertext, shared_secret, public_key);
+        if (oqc_rc != OQS_SUCCESS){
+		    printf("ERROR: OQS_KEM_ml_kem_768_keypair failed!\n");
+            goto error;
+        }
 
-        OQS_KEM_ml_kem_768_encaps(ciphertext, shared_secret, public_key);
-        // channel->localNonce =  shared key
-        // channel->remoteNonce = shared key
         UA_ByteString_allocBuffer(&channel->remoteNonce, OQS_KEM_ml_kem_768_length_shared_secret);
         memcpy(channel->remoteNonce.data, shared_secret, OQS_KEM_ml_kem_768_length_shared_secret);
 
         UA_ByteString_allocBuffer(&channel->localNonce, OQS_KEM_ml_kem_768_length_shared_secret);
         memcpy(channel->localNonce.data, shared_secret, OQS_KEM_ml_kem_768_length_shared_secret);
 
+
+        UA_String out = UA_STRING_NULL;
+        UA_print(&channel->localNonce, &UA_TYPES[UA_TYPES_BYTESTRING], &out);
+        printf("OpenSecureChannel:\n\tshared key: %.*s\n", (int)out.length, out.data);
+
         // copy
         UA_ByteString_allocBuffer(&response->serverNonce, OQS_KEM_ml_kem_768_length_ciphertext);
         memcpy(response->serverNonce.data, ciphertext, OQS_KEM_ml_kem_768_length_ciphertext);
+
     }
     else {
          /* Set the nonces. The remote nonce will be "rotated in" when it is first used. */
@@ -114,7 +123,10 @@ Service_OpenSecureChannel(UA_Server *server, UA_SecureChannel *channel,
         channel->remoteNonce = request->clientNonce;
         UA_ByteString_init(&request->clientNonce);
 
-        response->responseHeader.serviceResult = UA_SecureChannel_generateLocalNonce(channel);
+        response->responseHeader.serviceResult |= UA_SecureChannel_generateLocalNonce(channel);
+
+        response->responseHeader.serviceResult |=            
+                    UA_ByteString_copy(&channel->localNonce, &response->serverNonce);
         UA_CHECK_STATUS(response->responseHeader.serviceResult, goto error);
     }
    
@@ -127,8 +139,6 @@ Service_OpenSecureChannel(UA_Server *server, UA_SecureChannel *channel,
     response->securityToken.createdAt = el->dateTime_now(el); /* only for sending */
     response->responseHeader.timestamp = response->securityToken.createdAt;
     response->responseHeader.requestHandle = request->requestHeader.requestHandle;
-    response->responseHeader.serviceResult =            
-                UA_ByteString_copy(&channel->localNonce, &response->serverNonce);
     UA_CHECK_STATUS(response->responseHeader.serviceResult, goto error);
     
     // if we use a kem, we put the shared key in both, remote and local Nonce

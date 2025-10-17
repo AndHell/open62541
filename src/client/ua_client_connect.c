@@ -551,6 +551,11 @@ processOPNResponse(UA_Client *client, const UA_ByteString *message) {
         uint8_t kem_ciphetext[OQS_KEM_ml_kem_768_length_ciphertext] = {0};
         memcpy(kem_ciphetext, response.serverNonce.data, OQS_KEM_ml_kem_768_length_ciphertext);
 
+
+        UA_String out = UA_STRING_NULL;
+        UA_print(&response.serverNonce, &UA_TYPES[UA_TYPES_BYTESTRING], &out);
+        printf("processOPNResponse:\n\tkem ciphertext: %.*s\n", (int)out.length, out.data);
+
         OQS_KEM_ml_kem_768_decaps(shared_secret, kem_ciphetext, kem_secretkey);
 
         UA_ByteString_clear(&client->channel.localNonce);
@@ -562,6 +567,11 @@ processOPNResponse(UA_Client *client, const UA_ByteString *message) {
         
         UA_ByteString_allocBuffer(&client->channel.remoteNonce, OQS_KEM_ml_kem_768_length_shared_secret);
         memcpy(client->channel.remoteNonce.data, shared_secret, OQS_KEM_ml_kem_768_length_shared_secret);
+
+
+        UA_print(&client->channel.remoteNonce, &UA_TYPES[UA_TYPES_BYTESTRING], &out);
+        printf("\tshared secret: %.*s\n", (int)out.length, out.data);
+
     }
     else {
         /* Move the nonce out of the response */
@@ -650,6 +660,11 @@ sendOPNAsync(UA_Client *client, UA_Boolean renew) {
 
         client->connectStatus |= UA_ByteString_allocBuffer(&client->channel.localNonce, OQS_KEM_ml_kem_768_length_public_key);
         memcpy(client->channel.localNonce.data, kem_publickey, OQS_KEM_ml_kem_768_length_public_key);
+        
+    
+        UA_String out = UA_STRING_NULL;
+        UA_print(&client->channel.localNonce, &UA_TYPES[UA_TYPES_BYTESTRING], &out);
+        printf("sendOPNAsync:\n\tpublic key: %.*s\n", (int)out.length, out.data);
     }
     else {
         client->connectStatus =
